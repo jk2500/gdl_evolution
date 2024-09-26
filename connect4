@@ -1,0 +1,196 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Roles
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(role red)
+(role black)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Base and Input Declarations
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(base (cell ?col ?row ?player))
+(base (control ?player))
+
+(input red (drop ?col))
+(input black (drop ?col))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Initial State
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(init (control red))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Columns and Rows
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(column 1)
+(column 2)
+(column 3)
+(column 4)
+(column 5)
+(column 6)
+(column 7)
+
+(row 1)
+(row 2)
+(row 3)
+(row 4)
+(row 5)
+(row 6)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Successor Function for Rows and Columns
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(successor 1 2)
+(successor 2 3)
+(successor 3 4)
+(successor 4 5)
+(successor 5 6)
+(successor 6 7)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Less Than Relation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(less 1 2) (less 1 3) (less 1 4) (less 1 5) (less 1 6) (less 1 7)
+(less 2 3) (less 2 4) (less 2 5) (less 2 6) (less 2 7)
+(less 3 4) (less 3 5) (less 3 6) (less 3 7)
+(less 4 5) (less 4 6) (less 4 7)
+(less 5 6) (less 5 7)
+(less 6 7)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Legal Moves
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(<= (legal ?player (drop ?col))
+    (true (control ?player))
+    (column ?col)
+    (not (full ?col)))
+
+(<= (full ?col)
+    (row 6)
+    (true (cell ?col 6 _)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; State Transitions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(<= (next (cell ?col ?row ?player))
+    (does ?player (drop ?col))
+    (lowest_empty ?col ?row))
+
+(<= (next (cell ?col ?row ?player))
+    (true (cell ?col ?row ?player)))
+
+(<= (next (control red))
+    (true (control black)))
+
+(<= (next (control black))
+    (true (control red)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Helper Relations
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(<= (lowest_empty ?col 1)
+    (not (true (cell ?col 1 _))))
+
+(<= (lowest_empty ?col ?row)
+    (successor ?lower ?row)
+    (true (cell ?col ?lower _))
+    (not (true (cell ?col ?row _)))
+    (row ?row)
+    (row ?lower))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Win Conditions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(<= (win ?player)
+    (line ?player ?c1 ?r1 ?c2 ?r2 ?c3 ?r3 ?c4 ?r4))
+
+;; Horizontal Lines
+(<= (line ?player ?c ?r ?c2 ?r ?c3 ?r ?c4 ?r)
+    (true (cell ?c  ?r ?player))
+    (true (cell ?c2 ?r ?player))
+    (true (cell ?c3 ?r ?player))
+    (true (cell ?c4 ?r ?player))
+    (successor ?c  ?c2)
+    (successor ?c2 ?c3)
+    (successor ?c3 ?c4)
+    (column ?c)
+    (row ?r))
+
+;; Vertical Lines
+(<= (line ?player ?c ?r ?c ?r2 ?c ?r3 ?c ?r4)
+    (true (cell ?c ?r  ?player))
+    (true (cell ?c ?r2 ?player))
+    (true (cell ?c ?r3 ?player))
+    (true (cell ?c ?r4 ?player))
+    (successor ?r  ?r2)
+    (successor ?r2 ?r3)
+    (successor ?r3 ?r4)
+    (row ?r))
+
+;; Diagonal (Positive Slope)
+(<= (line ?player ?c ?r ?c2 ?r2 ?c3 ?r3 ?c4 ?r4)
+    (true (cell ?c  ?r  ?player))
+    (true (cell ?c2 ?r2 ?player))
+    (true (cell ?c3 ?r3 ?player))
+    (true (cell ?c4 ?r4 ?player))
+    (successor ?c  ?c2)
+    (successor ?c2 ?c3)
+    (successor ?c3 ?c4)
+    (successor ?r  ?r2)
+    (successor ?r2 ?r3)
+    (successor ?r3 ?r4))
+
+;; Diagonal (Negative Slope)
+(<= (line ?player ?c ?r ?c2 ?r2 ?c3 ?r3 ?c4 ?r4)
+    (true (cell ?c  ?r  ?player))
+    (true (cell ?c2 ?r2 ?player))
+    (true (cell ?c3 ?r3 ?player))
+    (true (cell ?c4 ?r4 ?player))
+    (successor ?c  ?c2)
+    (successor ?c2 ?c3)
+    (successor ?c3 ?c4)
+    (successor ?r4 ?r3)
+    (successor ?r3 ?r2)
+    (successor ?r2 ?r))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Terminal and Goal States
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(<= terminal
+    (win red))
+
+(<= terminal
+    (win black))
+
+(<= terminal
+    (board_full)
+    (not (win red))
+    (not (win black)))
+
+(<= (board_full)
+    (not (exists_empty_cell)))
+
+(<= (exists_empty_cell)
+    (cell ?col ?row)
+    (not (true (cell ?col ?row _))))
+
+(<= (goal red 100)
+    (win red))
+
+(<= (goal red 0)
+    (win black))
+
+(<= (goal red 50)
+    (board_full)
+    (not (win red))
+    (not (win black)))
+
+(<= (goal black 100)
+    (win black))
+
+(<= (goal black 0)
+    (win red))
+
+(<= (goal black 50)
+    (board_full)
+    (not (win red))
+    (not (win black)))
