@@ -51,13 +51,13 @@ fn find_compatible_subtrees<'a>(
 
     match clause {
         // Handle SentenceClause type
-        Clause::SentenceClause(sentence) => {
-            if let Sentence::RelSentence(relation) = sentence {
-                if are_relations_compatible(relation, target_relation) {
-                    compatible_subtrees.push(relation);
-                }
-            }
-        }
+        // Clause::SentenceClause(sentence) => {
+        //     if let Sentence::RelSentence(relation) = sentence {
+        //         if are_relations_compatible(relation, target_relation) {
+        //             compatible_subtrees.push(relation);
+        //         }
+        //     }
+        // }
         // Handle RuleClause type
         Clause::RuleClause(rule) => {
             // Extract the Relation from the rule head Sentence
