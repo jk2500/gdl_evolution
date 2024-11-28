@@ -32,7 +32,7 @@ $ cargo build
 2. Run the genetic algorithm using the command:
 
 ```bash
-$ cargo run --release
+$ cargo run
 ```
 
 This will read the GDL files from the `gdl_games` directory, create an initial population, and evolve them over several generations.
