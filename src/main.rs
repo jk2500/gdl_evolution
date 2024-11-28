@@ -5,40 +5,31 @@ use std::path::Path;
 
 
 
-fn generate_diff_description(evolved: &Description, parent1: &Description, parent2: &Description) -> String {
+fn generate_diff_description(evolved: &Description, parents: &[Description]) -> String {
     let evolved_relations = get_all_relations(evolved);
-    let parent1_relations = get_all_relations(parent1);
-    let parent2_relations = get_all_relations(parent2);
-
     let mut description = String::from("\n\n;; Evolutionary Changes Description:\n");
     
-    // Check for relations from parent1
-    description.push_str(";; Inherited from Tic-tac-toe:\n");
+    // Track relations inherited from parents
+    description.push_str(";; Inherited relations:\n");
     for rel in &evolved_relations {
-        if parent1_relations.contains(rel) {
-            description.push_str(&format!(";; - {}\n", rel));
+        for (i, parent) in parents.iter().enumerate() {
+            if get_all_relations(parent).contains(rel) {
+                description.push_str(&format!(";; - {} (from parent {})\n", rel, i));
+                break;
+            }
         }
     }
 
-    // Check for relations from parent2
-    description.push_str(";; Inherited from Connect4:\n");
-    for rel in &evolved_relations {
-        if parent2_relations.contains(rel) {
-            description.push_str(&format!(";; - {}\n", rel));
-        }
-    }
-
-    // Check for new relations not in either parent
+    // Track new relations
     description.push_str(";; New evolved relations:\n");
     for rel in &evolved_relations {
-        if !parent1_relations.contains(rel) && !parent2_relations.contains(rel) {
+        if !parents.iter().any(|p| get_all_relations(p).contains(rel)) {
             description.push_str(&format!(";; - {}\n", rel));
         }
     }
 
     description
 }
-
 
 fn parse_gdl(program_text: &str) -> Option<Description> {
     // Since `parse` returns a `Description`, you can directly wrap it in `Some`.
@@ -136,7 +127,12 @@ fn get_all_relations(description: &Description) -> Vec<&Relation> {
 fn crossover(parent1: &Description, parent2: &Description) -> Description {
     let mut rng = thread_rng(); // Random number generator
     let crossover_rate = 0.10; // Define the crossover rate (10%)
-    let mut child = parent1.clone(); // Start by cloning parent1 to create the child
+      // Randomly select initial parent
+   let mut child = if rng.gen_bool(0.5) {
+    parent1.clone()
+} else {
+    parent2.clone() 
+};
 
     // Collect all clauses from each parent
     let parent1_clauses: Vec<_> = parent1.clauses.iter().collect();
@@ -246,7 +242,14 @@ struct CrossoverStats {
 fn crossover_with_stats(parent1: &Description, parent2: &Description) -> (Description, CrossoverStats) {
     let mut rng = thread_rng(); // Random number generator
     let crossover_rate = 0.10; // 10% crossover rate
-    let mut child = parent1.clone(); // Start with a clone of parent1
+
+     // Randomly select initial parent
+     let mut child = if rng.gen_bool(0.5) {
+        parent1.clone()
+    } else {
+        parent2.clone() 
+    };
+
     let mut crossovers_performed = 0; // Track the number of crossovers
     let mut total_subtree_size = 0; // Track the total size of subtrees replaced
 
@@ -427,61 +430,39 @@ fn select_parents<'a>(
 
 fn main() {
 
-
+    let num_programs = 10;
+    
+    // Read all GDL files from a directory
+    let gdl_dir = "gdl_games";
+    let mut parent_programs = Vec::new();
+    
+    for entry in fs::read_dir(gdl_dir).expect("Failed to read directory") {
+        let entry = entry.expect("Failed to read entry");
+        let path = entry.path();
         
-
-        let num_programs = 5;  // Add this line to control number of outputs
-        
-        // Load parent GDL programs
-        let program1_text = match fs::read_to_string("tictactoe") {
-            Ok(text) => text,
-            Err(e) => {
-                println!("Error reading tictactoe: {}", e);
-                return;
-            }
-        };
-    
-        let program2_text = match fs::read_to_string("connect4") {
-            Ok(text) => text,
-            Err(e) => {
-                println!("Error reading connect4: {}", e);
-                return;
-            }
-        };
-    
-        // Parse programs into ASTs
-        let program1_ast = match parse_gdl(&program1_text) {
-
-            Some(ast) => {
-                println!("Parsed AST for tictactoe:\n{:?}", ast);
-                ast
-            },
-            None => {
-                println!("Error parsing tictactoe");
-                return;
-            }
-        };
-
-        let program2_ast = match parse_gdl(&program2_text) {
-            Some(ast) => ast,
-            None => {
-                println!("Error parsing connect4");
-                return;
-            }
-        };
-    
-        // Initial population - create num_programs copies alternating between the two source programs
-        let mut population = Vec::with_capacity(num_programs);
-        for i in 0..num_programs {
-            if i % 2 == 0 {
-                population.push(program1_ast.clone());
-            } else {
-                population.push(program2_ast.clone());
+        if path.is_file() {
+            if let Ok(text) = fs::read_to_string(&path) {
+                if let Some(ast) = parse_gdl(&text) {
+                    parent_programs.push(ast);
+                }
             }
         }
+    }
 
-    // Run the genetic algorithm
+    if parent_programs.is_empty() {
+        println!("No valid GDL programs found");
+        return;
+    }
+
+    // Create initial population by randomly selecting from parent programs
+    let mut rng = thread_rng();
+    let mut population = Vec::with_capacity(num_programs);
+    for _ in 0..num_programs {
+        population.push(parent_programs.choose(&mut rng).unwrap().clone());
+    }
+
     let evolved_population = genetic_algorithm(population, 10);
+        
 
     // Save the evolved programs
     let output_dir = "evolved_programs";
@@ -491,16 +472,16 @@ fn main() {
 
     for (idx, individual) in evolved_population.iter().enumerate() {
         let program_text = tree_to_gdl(individual);
-        let file_path = format!("{}/evolved_program_{}", output_dir, idx);
+        let file_path = format!("{}/evolved_program_{}.txt", output_dir, idx);
         fs::write(file_path, program_text).expect("Failed to write evolved program");
     }
 
     for (idx, individual) in evolved_population.iter().enumerate() {
         let mut program_text = tree_to_gdl(individual);
-        let diff_description = generate_diff_description(individual, &program1_ast, &program2_ast);
+        let diff_description = generate_diff_description(individual, &parent_programs);
         program_text.push_str(&diff_description);
         
-        let file_path = format!("{}/evolved_program_{}", output_dir, idx);
+        let file_path = format!("{}/evolved_program_{}.txt", output_dir, idx);
         fs::write(file_path, program_text).expect("Failed to write evolved program");
     }
 }
